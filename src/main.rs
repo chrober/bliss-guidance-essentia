@@ -805,12 +805,15 @@ mod tests {
     #[test]
     fn oversized_exact_identity_artifact_is_refused_without_reading_it_all() {
         let mut f = fixture(1);
-        fs::write(&f.artifact.path, vec![b'x'; (MAX_ARTIFACT_BYTES + 1) as usize]).unwrap();
+        fs::write(
+            &f.artifact.path,
+            vec![b'x'; (MAX_ARTIFACT_BYTES + 1) as usize],
+        )
+        .unwrap();
         let response = handle(&mut Provider::default(), prep(&f, false));
         assert!(matches!(
             response,
             GuidanceResponse::Error { code, .. } if code == "ARTIFACT_TOO_LARGE_OR_INVALID"
         ));
     }
-
 }
