@@ -780,4 +780,37 @@ mod tests {
             GuidanceResponse::Error { .. }
         ));
     }
+    #[test]
+    fn stale_job_binding_and_spoofed_anchor_file_are_rejected() {
+        let f = fixture(1);
+        let mut provider = Provider::default();
+        let mut wrong_job = prep(&f, false);
+        if let GuidanceRequest::Prepare { job_id, .. } = &mut wrong_job {
+            *job_id = "not-the-pinned-job".into();
+        }
+        assert!(matches!(
+            handle(&mut provider, wrong_job),
+            GuidanceResponse::Error { .. }
+        ));
+        let mut wrong_anchor = prep(&f, false);
+        if let GuidanceRequest::Prepare { anchors, .. } = &mut wrong_anchor {
+            anchors[0].track.database_file = Some("fictional/incorrect.flac".into());
+        }
+        assert!(matches!(
+            handle(&mut provider, wrong_anchor),
+            GuidanceResponse::Error { .. }
+        ));
+    }
+
+    #[test]
+    fn oversized_exact_identity_artifact_is_refused_without_reading_it_all() {
+        let mut f = fixture(1);
+        fs::write(&f.artifact.path, vec![b'x'; (MAX_ARTIFACT_BYTES + 1) as usize]).unwrap();
+        let response = handle(&mut Provider::default(), prep(&f, false));
+        assert!(matches!(
+            response,
+            GuidanceResponse::Error { code, .. } if code == "ARTIFACT_TOO_LARGE_OR_INVALID"
+        ));
+    }
+
 }
