@@ -1,6 +1,6 @@
 # Integration contract — native Essentia Guidance provider
 
-**Status (30 Oct 2026): planned; no implementation or active guidance yet.**
+**Implementation update (30 Oct 2026): native Rust SPI v2 `describe/prepare/score/close` and SHA-256-bound exact-key + read-only sidecar shadow evaluation are now implemented in [Draft PR #1](https://github.com/chrober/bliss-guidance-essentia/pull/1). Output remains entirely neutral (`signals=[]`); no Lyrion host yet creates the required exact-key identity artifact, and active guidance, packaging, production metric validation and musical A/B evaluation have NOT been implemented.**
 
 ## Reuse rather than reimplement
 
@@ -12,7 +12,7 @@
 | Eligible candidates, bounded ranking policy, repeat, CUE/virtual constraints, route | Existing native `bliss-mixer` and `bliss-playlist-optimizer` hosts |
 | Trusted provider executable, local resources, user configuration | [lms-guidance-essentia](https://github.com/chrober/lms-guidance-essentia) |
 
-## Contract to implement
+## Protocol lifecycle (first shadow-only slice implemented; active signaling not implemented)
 
 1. **`describe`**: return a truthful provider manifest, explicit version 2, channels and limits only after native binary is implemented and conforms to the SPI schema. No invented manifest or fake signals.
 2. **`prepare`**: receive only host-configured trusted resource descriptors (local SQLite schema v3 with explicit user-selected model fingerprint). Open read-only and guard against schema/incompatible provenance. Resolve host identities via a *separate trusted identity artifact* with complete and verified `candidate_id -> exact feature_tracks.track_file` mapping; never infer mapping from `lms_urlmd5`, artist or title. Hash-bind and validate any frozen artifact according to SPI requirements. Preserve privacy in diagnostics. Network only when explicitly in policy, but intended provider has **zero network requests**.
@@ -30,3 +30,9 @@
 - Only after independent human-quality evidence and license/packaging review: opt-in active provider; feature-first/hybrid retrieval requires a separate host-owned API, not SPI v2.
 
 **No active implementation is claimed by this document.**
+
+## First implemented SPI-v2 shadow slice and its limits
+
+The provider's actual `src/main.rs` uses the version-pinned canonical SPI v2 types, pinned `essentia-similarity-core` geometry and `essentia-feature-store` SQLite v3 consumer. It requires a new host-owned `essentia-exact-track-keys-v1` artifact, SHA-256 checked and job-bound, plus a trusted read-only sidecar resource. It does not infer keys from `lms_urlmd5` or a filename string. It accepts global single-anchor geometry only; directional edge contexts return neutral. The `essentia_experimental_shadow` manifest channel advertises **no active host policy** and every score response has an **empty `signals` array**, including when real model vectors are successfully decoded and compared. Thus a passing protocol or fixture test is not a deployed or listening-validated source of guidance.
+
+The immediate next product task is to implement the **host-owned exact identity mapping and artifact generation** in the compatible Lyrion/Bliss host boundary. After that, implement a disabled-by-default installable Lyrion wrapper and first Lab Shadow UI. Active signed scores and Better Call Bliss directed route transitions remain separate scientific/product quality gates.
