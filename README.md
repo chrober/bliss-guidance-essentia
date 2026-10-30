@@ -48,3 +48,7 @@ The existing [BlissMixerLab](https://github.com/chrober/lms-blissmixer-lab) / [B
 Actual song-level Essentia numeric source validation, human General Metric improvement, model confidence calibration, real edge/route quality, Pi runtime measurement and licensing/distribution reviews are **not complete**. Never activate score weights before these gates. Feature-first/hybrid recruitment is a separate host-owned retrieval interface outside SPI v2.
 
 See [native integration contract](docs/integration-contract.md).
+
+## Offline feature producer ownership
+
+The **canonical** Rust offline scanner and original Essentia C++ worker are now maintained in [`chrober/essentia-analyser`](https://github.com/chrober/essentia-analyser) (extraction [PR #1 merged](https://github.com/chrober/essentia-analyser/pull/1)). It generates the precomputed versioned SQLite-v3 feature sidecar; no analysis binaries, ONNX models or upstream Essentia worker are launched at Guidance scoring time. [`chrober/bliss-mood-poc`](https://github.com/chrober/bliss-mood-poc) remains the **research/experimentation** repository for WP1/WP2/WP3 and historical scanner reproducibility. Actual third-party native release approval is still blocked by the producer's separate license gates.
