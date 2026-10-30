@@ -17,7 +17,9 @@ fn exchange(lines: &[&str]) -> Output {
             writeln!(stdin, "{line}").unwrap();
         }
     }
-    child.wait_with_output().expect("native process should exit")
+    child
+        .wait_with_output()
+        .expect("native process should exit")
 }
 
 #[test]
@@ -29,18 +31,26 @@ fn actual_describe_and_close_are_wire_compatible() {
     assert!(result.status.success());
     assert!(result.stderr.is_empty());
     let stdout = String::from_utf8(result.stdout).unwrap();
-    let replies = stdout.lines().map(|line| decode_response(line).unwrap()).collect::<Vec<_>>();
+    let replies = stdout
+        .lines()
+        .map(|line| decode_response(line).unwrap())
+        .collect::<Vec<_>>();
     assert_eq!(replies.len(), 2);
     match &replies[0] {
         GuidanceResponse::Manifest(manifest) => {
             assert_eq!(manifest.spi_version, SPI_VERSION);
             assert_eq!(manifest.protocol, PROTOCOL_NAME);
             assert_eq!(manifest.provider_id, "essentia-guidance");
-            assert!(manifest.channels.iter().all(|channel| channel.supported_host_policies.is_empty()));
+            assert!(manifest
+                .channels
+                .iter()
+                .all(|channel| channel.supported_host_policies.is_empty()));
         }
         other => panic!("expected real Manifest, got {other:?}"),
     }
-    assert!(matches!(&replies[1], GuidanceResponse::Closed{provider_id} if provider_id=="essentia-guidance"));
+    assert!(
+        matches!(&replies[1], GuidanceResponse::Closed{provider_id} if provider_id=="essentia-guidance")
+    );
 }
 
 #[test]
@@ -54,9 +64,14 @@ fn actual_unprepared_score_is_neutral_without_candidate_leak() {
     assert!(!stdout.contains("fixture-hidden-song"));
     let first = decode_response(stdout.lines().next().unwrap()).unwrap();
     match first {
-        GuidanceResponse::Scores{signals,request_id,diagnostics,..} => {
+        GuidanceResponse::Scores {
+            signals,
+            request_id,
+            diagnostics,
+            ..
+        } => {
             assert!(signals.is_empty());
-            assert_eq!(request_id,"fixture-request");
+            assert_eq!(request_id, "fixture-request");
             assert_eq!(diagnostics.state.as_deref(), Some("neutral_fallback"));
         }
         other => panic!("expected neutral Scores, got {other:?}"),
@@ -73,9 +88,12 @@ fn malformed_line_is_bounded_error_and_following_describe_still_works() {
     assert!(result.status.success());
     let stdout = String::from_utf8(result.stdout).unwrap();
     assert!(!stdout.contains("/fake/not-logged"));
-    let replies = stdout.lines().map(|line| decode_response(line).unwrap()).collect::<Vec<_>>();
-    assert_eq!(replies.len(),3);
-    assert!(matches!(&replies[0],GuidanceResponse::Error{..}));
-    assert!(matches!(&replies[1],GuidanceResponse::Manifest(_)));
-    assert!(matches!(&replies[2],GuidanceResponse::Closed{..}));
+    let replies = stdout
+        .lines()
+        .map(|line| decode_response(line).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(replies.len(), 3);
+    assert!(matches!(&replies[0], GuidanceResponse::Error { .. }));
+    assert!(matches!(&replies[1], GuidanceResponse::Manifest(_)));
+    assert!(matches!(&replies[2], GuidanceResponse::Closed { .. }));
 }
