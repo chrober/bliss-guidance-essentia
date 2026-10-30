@@ -147,10 +147,16 @@ fn verified_artifact(artifact: &ArtifactDescriptor) -> Result<ExactKeyArtifact, 
     if !metadata.is_file() || metadata.len() > MAX_ARTIFACT_BYTES {
         return Err("ARTIFACT_TOO_LARGE_OR_INVALID");
     }
-    let bytes = fs::read(&artifact.path).map_err(|_| "ARTIFACT_UNAVAILABLE")?;
-    if bytes.len() as u64 > MAX_ARTIFACT_BYTES
-        || format!("{:x}", Sha256::digest(&bytes)) != artifact.sha256
-    {
+    // Read through a hard cap even if the file changes after metadata() (TOCTOU).
+    let file = fs::File::open(&artifact.path).map_err(|_| "ARTIFACT_UNAVAILABLE")?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(MAX_ARTIFACT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "ARTIFACT_UNAVAILABLE")?;
+    if bytes.len() as u64 > MAX_ARTIFACT_BYTES {
+        return Err("ARTIFACT_TOO_LARGE_OR_INVALID");
+    }
+    if format!("{:x}", Sha256::digest(&bytes)) != artifact.sha256 {
         return Err("ARTIFACT_SHA256_MISMATCH");
     }
     serde_json::from_slice(&bytes).map_err(|_| "INVALID_EXACT_KEY_ARTIFACT")
@@ -219,8 +225,14 @@ fn prepare(
     }
     let mut anchor_ids = HashSet::new();
     for anchor in anchors {
+        let exact_key = keys.get(&anchor.anchor_id);
         if anchor.anchor_id.is_empty()
-            || !keys.contains_key(&anchor.anchor_id)
+            || exact_key.is_none()
+            || anchor
+                .track
+                .database_file
+                .as_ref()
+                .is_some_and(|host_key| Some(host_key) != exact_key)
             || !anchor_ids.insert(anchor.anchor_id)
         {
             return Err("ANCHOR_EXACT_KEY_UNRESOLVED");
