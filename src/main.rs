@@ -804,8 +804,7 @@ mod tests {
             if let GuidanceRequest::Prepare { anchors, .. } = &mut request {
                 anchors[0].anchor_id = "seed-1".into();
                 anchors[0].track.candidate_id = "file:///original/seed.flac".into();
-                anchors[0].track.lms_urlmd5 =
-                    Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into());
+                anchors[0].track.lms_urlmd5 = Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into());
                 anchors[0].track.database_file = Some("fictional/seed.flac".into());
             }
             request
@@ -826,8 +825,7 @@ mod tests {
 
         let mut spoofed_hash = original(&f);
         if let GuidanceRequest::Prepare { anchors, .. } = &mut spoofed_hash {
-            anchors[0].track.lms_urlmd5 =
-                Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into());
+            anchors[0].track.lms_urlmd5 = Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into());
         }
         assert!(matches!(
             handle(&mut Provider::default(), spoofed_hash),
@@ -843,13 +841,19 @@ mod tests {
             GuidanceResponse::Error { code, .. } if code == "ANCHOR_EXACT_KEY_UNRESOLVED"
         ));
 
-        document["tracks"][0].as_object_mut().unwrap().remove("source_url");
+        document["tracks"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("source_url");
         write_artifact(&document, &mut f);
         assert!(matches!(
             handle(&mut Provider::default(), original(&f)),
             GuidanceResponse::Error { code, .. } if code == "HOST_SEED_SOURCE_PROOF_MISSING"
         ));
-        document["tracks"][0].as_object_mut().unwrap().remove("lms_urlmd5");
+        document["tracks"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("lms_urlmd5");
         write_artifact(&document, &mut f);
         assert!(matches!(
             handle(&mut Provider::default(), original(&f)),
