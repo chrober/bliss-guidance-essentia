@@ -1,5 +1,23 @@
 # Bliss Guidance: Essentia (native SPI v2 provider)
 
+## SPI-only Lyrion host boundary (31 October 2026)
+
+The native binary remains a strictly independent `bliss-playlist-guidance-spi`
+v2 provider. **The generic BlissMixerLab host does not import, understand,
+prepare or invoke Essentia-specific code.** The separate
+[Lyrion provider plugin](https://github.com/chrober/lms-guidance-essentia/pull/1)
+owns trustworthy LMS/Bliss/Essentia key mapping, source-generation
+attestation, read-only sidecar projection, provider discovery and trusted
+SPI `prepare.artifacts`/`prepare.resources` configuration.
+
+The generic host invokes the provider only by its existing native
+Guidance SPI path. The earlier direct native Lab runner has been deleted,
+not transferred to this repository. Native SPI v2 request and response
+shapes are unchanged. There is **no completed plugin registration**,
+joint-generation witness, multiple-root proof, live host scoring,
+or nonempty guidance signal capability. All such requests must remain
+unavailable/neutral until these gates are met.
+
 **Status:** working native **research-only, shadow-neutral SPI v2 implementation** on the experimental branch `feat/essentia-guidance-integration-design` / [Draft PR #1](https://github.com/chrober/bliss-guidance-essentia/pull/1). **Not yet an active guidance model or shipped Lyrion integration.**
 
 This repository follows the [`bliss-guidance-lastfm`](https://github.com/chrober/bliss-guidance-lastfm) and [`bliss-guidance-library-signals`](https://github.com/chrober/bliss-guidance-library-signals) naming convention. The `bliss-` prefix identifies the host Guidance SPI, **not a dependency in the mathematical similarity engine**. The reused engine lives in [`essentia-similarity`](https://github.com/chrober/essentia-similarity), already merged independently.
