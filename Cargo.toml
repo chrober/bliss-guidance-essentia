@@ -1,0 +1,18 @@
+[package]
+name = "bliss-guidance-essentia"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+publish = false
+description = "Research-only Essentia similarity shadow provider for Bliss Guidance SPI v2"
+
+[dependencies]
+bliss-playlist-guidance-spi = { git = "https://github.com/chrober/bliss-playlist-guidance-spi", rev = "3eb3af8808b7a816b1de8f2b992d378656725b44" }
+essentia-similarity-core = { git = "https://github.com/chrober/essentia-similarity", rev = "a59bcbb28070b15ad066fc443243db9306c246d6" }
+essentia-feature-store = { git = "https://github.com/chrober/essentia-similarity", rev = "a59bcbb28070b15ad066fc443243db9306c246d6" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[dev-dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
