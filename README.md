@@ -59,9 +59,44 @@ Normal process mode reads one JSONL request per line from stdin and writes one b
 
 The host must send an SPI `prepare.artifacts` descriptor with `kind=essentia-exact-track-keys-v1`, the artifact's trusted local path and **its actual SHA-256**, and `prepare.resources` with `kind=essentia-feature-sqlite-v3`, trusted local absolute SQLite-v3 path and `access=read_only`. `prepare.anchors` must contain source anchor IDs present in that mapping. `prepare.options` supplies `model_id` (`genre` or `moodtheme`), `metric` (`affine_cosine_v1` or `affine_centered_cosine_v1`), `expected_model_key`, and optional `experimental_preview_opt_in` (default false). Only global score contexts with one matching `context_track_ids` entry are evaluated. The result is **always shadow-neutral**; no active scores or alternative order are published.
 
+### Generic Lyrion host seed alias (offline research only)
+
+The Lab's existing Last.fm-compatible host route token, such as `seed-1`,
+is distinct from the song's original `file://` URL. The provider-owned
+[imported Windows SQLite-v3 pilot](https://github.com/chrober/lms-guidance-essentia/pull/1)
+independently checks that the host anchor's original song URL and
+`lms_urlmd5` match the trusted Lyrion track object and that its
+root-relative Essentia key exactly matches the read-only Bliss catalog
+and imported model snapshot. It writes the following **SHA-256-pinned**
+seed row, without changing any candidate row IDs:
+
+```json
+{
+  "track_id": "seed-1",
+  "track_file": "Artist/Album/seed.flac",
+  "source_url": "file:///host/music/Artist/Album/seed.flac",
+  "lms_urlmd5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+```
+
+For `seed-N` route tokens, the Rust `prepare` handler requires these
+additional provenance fields and independently matches the supplied
+SPI `anchor_id`, `candidate_id`, `lms_urlmd5` and any `database_file`
+to the immutable artifact. Changed or missing proofs cause fail-closed
+`ANCHOR_EXACT_KEY_UNRESOLVED` / `HOST_SEED_SOURCE_PROOF_MISSING`
+errors. Legacy synthetic native fixtures without the `seed-N` form
+continue to use the original two-field artifact entries. No SPI-v2
+wire change or new artifact version was required.
+
+[Native CI on Linux and Windows](https://github.com/chrober/bliss-guidance-essentia/actions/runs/41217655010)
+and [pinned cross-repo host/native CI](https://github.com/chrober/lms-guidance-essentia/actions/runs/41217718930)
+verify good and forged aliases, including URL and hash modification
+**after** the artifact is created. A SHA-256 digest provides byte
+integrity, not a third-party signature or a shared Lyrion/Essentia
+catalog generation witness. The score remains `signals=[]`.
 ## Outstanding product gates
 
-The existing [BlissMixerLab](https://github.com/chrober/lms-blissmixer-lab) / [Better Call Bliss](https://github.com/chrober/lms-better-call-bliss) hosts **do not currently produce this exact-key identity artifact**. The verified host-owned mapping is therefore the next practical integration dependency. The Lyrion settings/installable plugin is separately developed in [`lms-guidance-essentia`](https://github.com/chrober/lms-guidance-essentia).
+The research-only Lyrion provider's `ImportedSidecarPilot` now produces the exact-key identity artifact for a **bounded manually imported Windows-sidecar fixture**. The normal discoverable Lyrion provider factory still returns unavailable: there is no trusted *live Lab* acquisition, installable release, authenticated shared catalog generation or approved active scoring. The installable Lyrion settings/plugin remains a separate follow-up in [`lms-guidance-essentia`](https://github.com/chrober/lms-guidance-essentia).
 
 Actual song-level Essentia numeric source validation, human General Metric improvement, model confidence calibration, real edge/route quality, Pi runtime measurement and licensing/distribution reviews are **not complete**. Never activate score weights before these gates. Feature-first/hybrid recruitment is a separate host-owned retrieval interface outside SPI v2.
 
