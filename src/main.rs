@@ -40,6 +40,12 @@ struct ExactKeyArtifact {
 struct ExactKey {
     track_id: String,
     track_file: String,
+    // Only present for an explicitly bound host seed-N token. These
+    // values live inside the immutable SHA-256-verified artifact.
+    #[serde(default)]
+    source_url: Option<String>,
+    #[serde(default)]
+    lms_urlmd5: Option<String>,
 }
 
 struct Prepared {
@@ -212,22 +218,50 @@ fn prepare(
     }
     let mut keys = HashMap::new();
     let mut feature_keys = HashSet::new();
+    let mut host_route_sources = HashMap::<String, (String, String)>::new();
     for row in artifact.tracks {
         if row.track_id.is_empty()
             || row.track_file.is_empty()
             || row.track_id.contains('\0')
             || row.track_file.contains('\0')
             || !feature_keys.insert(row.track_file.clone())
-            || keys.insert(row.track_id, row.track_file).is_some()
         {
+            return Err("DUPLICATE_OR_INVALID_TRACK_IDENTITY");
+        }
+        if row.track_id.starts_with("seed-") {
+            // A route token is NOT a file URL. In host-bound mode the
+            // artifact must also pin the original Lyrion source URL and
+            // urlmd5, or a later process could silently replace that seed.
+            let source = row.source_url.ok_or("HOST_SEED_SOURCE_PROOF_MISSING")?;
+            let md5 = row.lms_urlmd5.ok_or("HOST_SEED_SOURCE_PROOF_MISSING")?;
+            if source.len() > 4096
+                || !source.to_ascii_lowercase().starts_with("file://")
+                || md5.len() != 32
+                || !md5.bytes().all(|b| b.is_ascii_hexdigit())
+            {
+                return Err("HOST_SEED_SOURCE_PROOF_INVALID");
+            }
+            host_route_sources.insert(row.track_id.clone(), (source, md5));
+        } else if row.source_url.is_some() || row.lms_urlmd5.is_some() {
+            return Err("UNBOUND_SOURCE_IDENTITY_ASSERTION");
+        }
+        if keys.insert(row.track_id, row.track_file).is_some() {
             return Err("DUPLICATE_OR_INVALID_TRACK_IDENTITY");
         }
     }
     let mut anchor_ids = HashSet::new();
     for anchor in anchors {
         let exact_key = keys.get(&anchor.anchor_id);
+        let source_verified = match host_route_sources.get(&anchor.anchor_id) {
+            Some((url, urlmd5)) => {
+                anchor.track.candidate_id == *url
+                    && anchor.track.lms_urlmd5.as_deref() == Some(urlmd5.as_str())
+            }
+            None => !anchor.anchor_id.starts_with("seed-"),
+        };
         if anchor.anchor_id.is_empty()
             || exact_key.is_none()
+            || !source_verified
             || anchor
                 .track
                 .database_file
