@@ -783,6 +783,80 @@ mod tests {
         }
         assert_eq!(score_info(handle(&mut p, q)).1, "neutral_fallback");
     }
+
+    #[test]
+    fn host_seed_alias_is_bound_to_artifact_source_url_and_hash() {
+        let mut f = fixture(0);
+        let path = PathBuf::from(&f.artifact.path);
+        let mut document: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        document["tracks"][0]["track_id"] = json!("seed-1");
+        document["tracks"][0]["source_url"] = json!("file:///original/seed.flac");
+        document["tracks"][0]["lms_urlmd5"] = json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let write_artifact = |document: &Value, f: &mut Fixture| {
+            let bytes = serde_json::to_vec(document).unwrap();
+            fs::write(&f.artifact.path, &bytes).unwrap();
+            f.artifact.sha256 = format!("{:x}", Sha256::digest(&bytes));
+        };
+        write_artifact(&document, &mut f);
+
+        let original = |f: &Fixture| {
+            let mut request = prep(f, true);
+            if let GuidanceRequest::Prepare { anchors, .. } = &mut request {
+                anchors[0].anchor_id = "seed-1".into();
+                anchors[0].track.candidate_id = "file:///original/seed.flac".into();
+                anchors[0].track.lms_urlmd5 =
+                    Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into());
+                anchors[0].track.database_file = Some("fictional/seed.flac".into());
+            }
+            request
+        };
+        assert!(matches!(
+            handle(&mut Provider::default(), original(&f)),
+            GuidanceResponse::Prepared { .. }
+        ));
+
+        let mut spoofed_url = original(&f);
+        if let GuidanceRequest::Prepare { anchors, .. } = &mut spoofed_url {
+            anchors[0].track.candidate_id = "file:///unrelated/seed.flac".into();
+        }
+        assert!(matches!(
+            handle(&mut Provider::default(), spoofed_url),
+            GuidanceResponse::Error { code, .. } if code == "ANCHOR_EXACT_KEY_UNRESOLVED"
+        ));
+
+        let mut spoofed_hash = original(&f);
+        if let GuidanceRequest::Prepare { anchors, .. } = &mut spoofed_hash {
+            anchors[0].track.lms_urlmd5 =
+                Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into());
+        }
+        assert!(matches!(
+            handle(&mut Provider::default(), spoofed_hash),
+            GuidanceResponse::Error { code, .. } if code == "ANCHOR_EXACT_KEY_UNRESOLVED"
+        ));
+
+        let mut missing_hash = original(&f);
+        if let GuidanceRequest::Prepare { anchors, .. } = &mut missing_hash {
+            anchors[0].track.lms_urlmd5 = None;
+        }
+        assert!(matches!(
+            handle(&mut Provider::default(), missing_hash),
+            GuidanceResponse::Error { code, .. } if code == "ANCHOR_EXACT_KEY_UNRESOLVED"
+        ));
+
+        document["tracks"][0].as_object_mut().unwrap().remove("source_url");
+        write_artifact(&document, &mut f);
+        assert!(matches!(
+            handle(&mut Provider::default(), original(&f)),
+            GuidanceResponse::Error { code, .. } if code == "HOST_SEED_SOURCE_PROOF_MISSING"
+        ));
+        document["tracks"][0].as_object_mut().unwrap().remove("lms_urlmd5");
+        write_artifact(&document, &mut f);
+        assert!(matches!(
+            handle(&mut Provider::default(), original(&f)),
+            GuidanceResponse::Error { code, .. } if code == "HOST_SEED_SOURCE_PROOF_MISSING"
+        ));
+    }
+
     #[test]
     fn spoofed_edge_and_wrong_host_anchor_never_emit_signals() {
         let f = fixture(1);
